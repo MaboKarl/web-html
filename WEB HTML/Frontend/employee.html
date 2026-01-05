@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <title>Employee Dashboard</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+<div class="dashboard">
+    <div class="header">
+        <div class="header-content">
+            <div class="header-left">
+                <svg class="icon-lg" style="color:#4f46e5;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                </svg>
+                <div><h1>Employee Dashboard</h1><p class="subtitle" id="employeeSubtitle">Welcome</p></div>
+            </div>
+            <div class="header-right">
+                <button class="btn-danger" onclick="handleLogout()">Logout</button>
+            </div>
+        </div>
+    </div>
+ 
+    <div class="container py-8">
+        <div class="stats-grid" style="display:flex;gap:1rem;margin-bottom:1.5rem;">
+            <div class="stat-card"><p class="stat-label">Total Items</p><p class="stat-value" id="totalItems" style="color:#4f46e5;"></p></div>
+            <div class="stat-card"><p class="stat-label">Total Inventory Value</p><p class="stat-value" id="totalValue" style="color:#059669;"></p></div>
+            <div class="stat-card"><p class="stat-label">Low Stock Items</p><p class="stat-value" id="lowStock" style="color:#dc2626;"></p></div>
+        </div>
+ 
+        <div class="controls">
+            <div class="controls-row">
+                <div class="search-wrapper">
+                    <svg class="icon input-icon" style="left:0.75rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                    <input type="text" id="searchInput" class="input-with-icon" placeholder="Search by name or brand...">
+                </div>
+                <select id="categoryFilter">
+                    <option>All</option><option>CPU</option><option>GPU</option><option>RAM</option><option>Storage</option><option>Motherboard</option><option>PSU</option><option>Case</option>
+                </select>
+                <button class="btn-primary" onclick="openAddForm()">Add Item</button>
+            </div>
+        </div>
+ 
+        <div class="table-container">
+            <div class="table-wrapper">
+                <table>
+                    <thead><tr><th>Name</th><th>Category</th><th>Brand</th><th>Price</th><th>Stock</th><th>Actions</th></tr></thead>
+                    <tbody id="inventoryTbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+ 
+<!-- Add Modal -->
+<div id="addModal" class="modal-overlay hidden" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:1rem;">
+    <div class="modal" style="background:white;border-radius:0.5rem;max-width:42rem;padding:1.5rem;">
+        <div class="modal-header"><h2>Add New Item</h2><button class="modal-close" onclick="document.getElementById('addModal').classList.add('hidden')">×</button></div>
+        <form id="addForm">
+            <div class="form-group"><label>Name</label><input name="name" required></div>
+            <div class="form-group"><label>Category</label><select name="category"><option>CPU</option><option>GPU</option><option>RAM</option><option>Storage</option><option>Motherboard</option><option>PSU</option><option>Case</option></select></div>
+            <div class="form-group"><label>Brand</label><input name="brand" required></div>
+            <div class="form-group"><label>Price</label><input type="number" step="0.01" name="price" required></div>
+            <div class="form-group"><label>Stock</label><input type="number" name="stock" required></div>
+            <div class="form-group"><label>Description</label><textarea name="description" rows="3" required></textarea></div>
+            <div class="modal-actions" style="display:flex;gap:0.75rem;margin-top:1rem;"><button type="button" class="btn-secondary" onclick="document.getElementById('addModal').classList.add('hidden')">Cancel</button><button type="submit" class="btn-primary">Add Item</button></div>
+        </form>
+    </div>
+</div>
+ 
+<!-- Edit Modal -->
+<div id="editModal" class="modal-overlay hidden" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:1rem;">
+    <div class="modal" style="background:white;border-radius:0.5rem;max-width:42rem;padding:1.5rem;">
+        <div class="modal-header"><h2>Edit Item</h2><button class="modal-close" onclick="document.getElementById('editModal').classList.add('hidden')">×</button></div>
+        <form id="editForm">
+            <input type="hidden" name="id">
+            <div class="form-group"><label>Name</label><input name="name" required></div>
+            <div class="form-group"><label>Category</label><select name="category"><option>CPU</option><option>GPU</option><option>RAM</option><option>Storage</option><option>Motherboard</option><option>PSU</option><option>Case</option></select></div>
+            <div class="form-group"><label>Brand</label><input name="brand" required></div>
+            <div class="form-group"><label>Price</label><input type="number" step="0.01" name="price" required></div>
+            <div class="form-group"><label>Stock</label><input type="number" name="stock" required></div>
+            <div class="form-group"><label>Description</label><textarea name="description" rows="3" required></textarea></div>
+            <div class="modal-actions" style="display:flex;gap:0.75rem;margin-top:1rem;"><button type="button" class="btn-secondary" onclick="document.getElementById('editModal').classList.add('hidden')">Cancel</button><button type="submit" class="btn-primary">Save Changes</button></div>
+        </form>
+    </div>
+</div>
+ 
+<script src="../js/state.js"></script>
+<script src="../js/utils.js"></script>
+<script src="../js/inventory.js"></script>
+<script>
+loadCurrentUser();
+if (!STATE.currentUser || STATE.currentUser.role !== 'employee') {
+    window.location.href = './index.html';
+}
+document.getElementById('employeeSubtitle').textContent = 'Welcome, ' + STATE.currentUser.name;
+function updateStats(){
+    document.getElementById('totalItems').textContent = STATE.inventory.length;
+    const totalValue = STATE.inventory.reduce((s,i)=>s + i.price*i.stock,0);
+    document.getElementById('totalValue').textContent = '₱' + totalValue.toFixed(2);
+    document.getElementById('lowStock').textContent = STATE.inventory.filter(i=>i.stock<10).length;
+}
+updateStats();
+renderInventoryTable();
+document.getElementById('searchInput').addEventListener('input', renderInventoryTable);
+document.getElementById('categoryFilter').addEventListener('change', renderInventoryTable);
+document.getElementById('addForm').addEventListener('submit', function(e){ handleAddSubmit(e); updateStats(); });
+document.getElementById('editForm').addEventListener('submit', function(e){ handleEditSubmit(e); updateStats(); });
+</script>
+</body>
+</html>
