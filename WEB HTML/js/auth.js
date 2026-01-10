@@ -60,10 +60,10 @@ function showLoginError(message) {
 
 function redirectByRole(role) {
     if (role === 'employee') {
-        window.location.href = '../Frontend/employee.html';
+        window.location.href = '/Frontend/employee.html';
     } else if (role === 'guest') {
-        window.location.href = '../Frontend/guest.html';
+        window.location.href = '/Frontend/guest.html';
     } else {
-        window.location.href = '../Frontend/buyer.html';
+        window.location.href = '/Frontend/buyer.html';
     }
 }

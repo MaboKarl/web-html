@@ -1,62 +1,337 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Guest Dashboard</title>
-<link rel="stylesheet" href="css/style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guest Dashboard - ComputerHub</title>
+    <link rel="stylesheet" href="../../css/style.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8f9fa; }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1.5rem 0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .header-left h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+        
+        .header-left p {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        
+        .header-right {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+        
+        .btn-logout {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .btn-logout:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .alert-banner {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 2rem;
+            color: #1565c0;
+        }
+        
+        .controls {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 2rem;
+        }
+        
+        .controls-row {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
+        .search-box {
+            flex: 2;
+            min-width: 300px;
+            padding: 0.75rem 1rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+        
+        .search-box:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .category-select {
+            flex: 1;
+            min-width: 200px;
+            padding: 0.75rem 1rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            background: white;
+            cursor: pointer;
+        }
+        
+        .category-select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .product-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .product-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            padding: 1.5rem;
+            transition: all 0.3s;
+        }
+        
+        .product-card:hover {
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+            transform: translateY(-4px);
+        }
+        
+        .product-badge {
+            display: inline-block;
+            padding: 0.4rem 0.8rem;
+            background: #667eea;
+            color: white;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+        }
+        
+        .stock-badge {
+            float: right;
+            padding: 0.4rem 0.8rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .stock-badge.in-stock {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .stock-badge.out {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .product-card h3 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin: 0.75rem 0;
+            color: #2c3e50;
+        }
+        
+        .product-brand {
+            color: #7f8c8d;
+            font-size: 0.9rem;
+            margin: 0.25rem 0;
+        }
+        
+        .product-description {
+            color: #555;
+            font-size: 0.9rem;
+            margin: 0.75rem 0;
+            line-height: 1.4;
+        }
+        
+        .product-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid #e0e0e0;
+        }
+        
+        .product-price {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #667eea;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #999;
+        }
+        
+        @media (max-width: 768px) {
+            .product-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .controls-row {
+                flex-direction: column;
+            }
+            
+            .search-box, .category-select {
+                width: 100%;
+            }
+        }
+    </style>
 </head>
 <body>
-<div class="dashboard">
+    <!-- Header -->
     <div class="header">
         <div class="header-content">
             <div class="header-left">
-                <svg class="icon-lg" style="color:#4f46e5;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
-                </svg>
-                <div><h1>Guest Dashboard</h1><p class="subtitle" id="guestSubtitle">Welcome</p></div>
+                <h1>🛒 ComputerHub</h1>
+                <p id="userGreeting">Welcome</p>
             </div>
             <div class="header-right">
-                <button class="btn-danger" onclick="handleLogout()">Logout</button>
+                <button class="btn-logout" onclick="handleLogout()">Logout</button>
             </div>
         </div>
     </div>
 
-    <div class="container py-8">
-        <div class="alert alert-info" style="margin-bottom:1.5rem;">
-            You are viewing the inventory as a guest. You can browse items but cannot make purchases or modify inventory.
+    <!-- Main Content -->
+    <div class="container">
+        <!-- Alert Banner -->
+        <div class="alert-banner">
+            ℹ️ You are viewing the inventory as a guest. You can browse items but cannot make purchases.
         </div>
 
+        <!-- Search and Filter -->
         <div class="controls">
             <div class="controls-row">
-                <div class="search-wrapper">
-                    <svg class="icon input-icon" style="left:0.75rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                    </svg>
-                    <input type="text" id="searchInput" class="input-with-icon" placeholder="Search by name or brand...">
-                </div>
-                <select id="categoryFilter">
-                    <option>All</option><option>CPU</option><option>GPU</option><option>RAM</option><option>Storage</option><option>Motherboard</option><option>PSU</option><option>Case</option>
+                <input type="text" id="searchBox" class="search-box" placeholder="Search by product name or brand...">
+                <select id="categorySelect" class="category-select">
+                    <option value="">All Categories</option>
+                    <option value="CPU">CPU</option>
+                    <option value="GPU">GPU</option>
+                    <option value="RAM">RAM</option>
+                    <option value="Storage">Storage</option>
+                    <option value="Motherboard">Motherboard</option>
+                    <option value="PSU">PSU</option>
+                    <option value="Case">Case</option>
                 </select>
             </div>
         </div>
 
-        <div id="productsGrid" class="product-grid"></div>
-        <div id="noItems" class="empty-state hidden">No items found matching your search criteria.</div>
+        <!-- Products Grid -->
+        <div id="productsList" class="product-grid"></div>
+        <div id="emptyMessage" class="empty-state" style="display:none;">No products found</div>
     </div>
-</div>
 
-<script src="js/state.js"></script>
-<script src="js/utils.js"></script>
-<script src="js/cart.js"></script>
-<script>
-loadCurrentUser();
-if (!STATE.currentUser || STATE.currentUser.role !== 'guest') {
-    window.location.href = 'index.html';
-}
-document.getElementById('guestSubtitle').textContent = 'Welcome, ' + STATE.currentUser.name;
-renderProductsGrid();
-document.getElementById('searchInput').addEventListener('input', renderProductsGrid);
-document.getElementById('categoryFilter').addEventListener('change', renderProductsGrid);
-</script>
+    <!-- Scripts -->
+    <script src="../../js/state.js"></script>
+    <script src="../../js/utils.js"></script>
+    <script src="../../js/cart.js"></script>
+    <script>
+        async function initialize() {
+            await loadCurrentUser();
+            
+            if (!STATE.currentUser || STATE.currentUser.role !== 'guest') {
+                window.location.href = '/Frontend/index.html';
+                return;
+            }
+
+            document.getElementById('userGreeting').textContent = 'Welcome, ' + STATE.currentUser.name;
+            
+            await loadInventory();
+            displayProducts();
+        }
+
+        function displayProducts() {
+            const search = document.getElementById('searchBox').value.toLowerCase();
+            const category = document.getElementById('categorySelect').value;
+            
+            const filtered = STATE.inventory.filter(item => {
+                const matchesSearch = item.name.toLowerCase().includes(search) || item.brand.toLowerCase().includes(search);
+                const matchesCategory = !category || item.category === category;
+                return matchesSearch && matchesCategory;
+            });
+
+            if (filtered.length === 0) {
+                document.getElementById('productsList').style.display = 'none';
+                document.getElementById('emptyMessage').style.display = 'block';
+                return;
+            }
+
+            document.getElementById('productsList').style.display = 'grid';
+            document.getElementById('emptyMessage').style.display = 'none';
+
+            const html = filtered.map(item => `
+                <div class="product-card">
+                    <span class="product-badge">${item.category}</span>
+                    <span class="stock-badge ${item.stock > 0 ? 'in-stock' : 'out'}">
+                        ${item.stock > 0 ? item.stock + ' in stock' : 'Out of stock'}
+                    </span>
+                    <h3>${item.name}</h3>
+                    <p class="product-brand">${item.brand}</p>
+                    <p class="product-description">${item.description}</p>
+                    <div class="product-footer">
+                        <span class="product-price">$${item.price.toFixed(2)}</span>
+                    </div>
+                </div>
+            `).join('');
+
+            document.getElementById('productsList').innerHTML = html;
+        }
+
+        document.getElementById('searchBox').addEventListener('input', displayProducts);
+        document.getElementById('categorySelect').addEventListener('change', displayProducts);
+
+        initialize();
+    </script>
 </body>
 </html>

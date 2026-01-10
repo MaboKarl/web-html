@@ -9,7 +9,7 @@ const app = express();
 const PORT = process.env.PORT || 3001; // Changed to 3001 to avoid conflict with frontend
 
 // FIXED: Proper MongoDB Atlas URI format
-const MONGO_URI = "mongodb+srv://karldminer_db_user:WAKAWAKAAYEAYE@cluster0.xntpz0m.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+const MONGO_URI = "mongodb+srv://karldminer_db_user:imdlGN4GUS2lg6A5@cluster0.xntpz0m.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 const DB_NAME = 'InventoryDB';
 
 // --- MIDDLEWARE ---

@@ -4,7 +4,7 @@
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <title>Employee Dashboard</title>
-    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../../css/style.css">
 </head>
 <body>
 <div class="dashboard">
@@ -88,27 +88,35 @@
     </div>
 </div>
  
-<script src="../js/state.js"></script>
-<script src="../js/utils.js"></script>
-<script src="../js/inventory.js"></script>
+<script src="../../js/state.js"></script>
+<script src="../../js/utils.js"></script>
+<script src="../../js/inventory.js"></script>
 <script>
-loadCurrentUser();
-if (!STATE.currentUser || STATE.currentUser.role !== 'employee') {
-    window.location.href = './index.html';
+async function initialize() {
+    await loadCurrentUser();
+    if (!STATE.currentUser || STATE.currentUser.role !== 'employee') {
+        window.location.href = '/Frontend/index.html';
+        return;
+    }
+    document.getElementById('employeeSubtitle').textContent = 'Welcome, ' + STATE.currentUser.name;
+    await loadInventory();
+    updateStats();
+    renderInventoryTable();
 }
-document.getElementById('employeeSubtitle').textContent = 'Welcome, ' + STATE.currentUser.name;
+
 function updateStats(){
     document.getElementById('totalItems').textContent = STATE.inventory.length;
     const totalValue = STATE.inventory.reduce((s,i)=>s + i.price*i.stock,0);
     document.getElementById('totalValue').textContent = '₱' + totalValue.toFixed(2);
     document.getElementById('lowStock').textContent = STATE.inventory.filter(i=>i.stock<10).length;
 }
-updateStats();
-renderInventoryTable();
+
 document.getElementById('searchInput').addEventListener('input', renderInventoryTable);
 document.getElementById('categoryFilter').addEventListener('change', renderInventoryTable);
 document.getElementById('addForm').addEventListener('submit', function(e){ handleAddSubmit(e); updateStats(); });
 document.getElementById('editForm').addEventListener('submit', function(e){ handleEditSubmit(e); updateStats(); });
+
+initialize();
 </script>
 </body>
 </html>

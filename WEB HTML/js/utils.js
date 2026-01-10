@@ -8,11 +8,11 @@ async function loadCurrentUser() {
 
 function redirectByRole(role) {
     const pages = {
-        'buyer': 'buyer.html',
-        'employee': 'employee.html',
-        'guest': 'guest.html'
+        'buyer': '/Frontend/buyer.html',
+        'employee': '/Frontend/employee.html',
+        'guest': '/Frontend/guest.html'
     };
-    window.location.href = pages[role] || 'index.html';
+    window.location.href = pages[role] || '/Frontend/index.html';
 }
 
 function showLoginError(msg) {
@@ -30,7 +30,7 @@ function handleLogout() {
     STATE.cart = [];
     localStorage.removeItem('currentUser');
     localStorage.removeItem('cart');
-    window.location.href = 'index.html';
+    window.location.href = '/Frontend/index.html';
 }
 
 function filterItems() {
@@ -121,6 +121,42 @@ function openAddForm() {
     document.getElementById('addModal')?.classList.remove('hidden');
 }
 
+async function handleAddSubmit(e) {
+    e.preventDefault();
+    const f = e.target;
+    const newItem = {
+        name: f.name.value,
+        category: f.category.value,
+        brand: f.brand.value,
+        price: parseFloat(f.price.value),
+        stock: parseInt(f.stock.value),
+        description: f.description.value
+    };
+    
+    try {
+        const res = await fetch(`${API_URL}/inventory/add`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newItem)
+        });
+        const data = await res.json();
+        
+        if (!res.ok) {
+            alert('Failed to add item: ' + (data.error || 'Unknown error'));
+            return;
+        }
+        
+        await loadInventory();
+        f.reset();
+        document.getElementById('addModal')?.classList.add('hidden');
+        renderInventoryTable();
+        alert('Item added successfully!');
+    } catch (err) {
+        alert('Failed to add item. Check if backend is running.');
+        console.error(err);
+    }
+}
+
 function openEditForm(id) {
     const item = STATE.inventory.find(i => i.id === id);
     if (!item) return;
@@ -137,6 +173,63 @@ function openEditForm(id) {
     form.description.value = item.description;
 
     document.getElementById('editModal')?.classList.remove('hidden');
+}
+
+async function handleEditSubmit(e) {
+    e.preventDefault();
+    const f = e.target;
+    const id = f.id.value;
+    const updatedItem = {
+        name: f.name.value,
+        category: f.category.value,
+        brand: f.brand.value,
+        price: parseFloat(f.price.value),
+        stock: parseInt(f.stock.value),
+        description: f.description.value
+    };
+    
+    try {
+        const res = await fetch(`${API_URL}/inventory/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updatedItem)
+        });
+        
+        if (!res.ok) {
+            alert('Failed to update item');
+            return;
+        }
+        
+        await loadInventory();
+        document.getElementById('editModal')?.classList.add('hidden');
+        renderInventoryTable();
+        alert('Item updated successfully!');
+    } catch (err) {
+        alert('Failed to update item. Check if backend is running.');
+        console.error(err);
+    }
+}
+
+async function confirmDelete(id) {
+    if (!confirm('Are you sure you want to delete this item?')) return;
+    
+    try {
+        const res = await fetch(`${API_URL}/inventory/${id}`, { 
+            method: 'DELETE' 
+        });
+        
+        if (!res.ok) {
+            alert('Failed to delete item');
+            return;
+        }
+        
+        await loadInventory();
+        renderInventoryTable();
+        alert('Item deleted successfully!');
+    } catch (err) {
+        alert('Failed to delete item. Check if backend is running.');
+        console.error(err);
+    }
 }
 
 function openAddToCartModal(itemId) {
@@ -198,11 +291,13 @@ function renderCartPreview() {
 async function removeFromCart(itemId) {
     if (!STATE.currentUser) return;
     try {
-        await fetch(`http://localhost:3000/cart/${STATE.currentUser.id}/remove/${itemId}`, {
+        await fetch(`${API_URL}/cart/${STATE.currentUser.id}/remove/${itemId}`, {
             method: 'DELETE'
         });
         STATE.cart = STATE.cart.filter(i => i.itemId !== itemId);
         renderCartPreview();
+        await loadInventory();
+        renderProductsGrid();
     } catch (err) {
         console.error(err);
     }

@@ -1,86 +1,102 @@
-// cart.js - Updated with correct API URL
-const API_URL = 'http://localhost:3001';
+// cart.js - Shopping cart functions
+// API_URL is defined in state.js
 
-async function loadCart() {
-    if (!STATE.currentUser) return;
-    try {
-        const res = await fetch(`${API_URL}/cart/${STATE.currentUser.id}`);
-        const data = await res.json();
-        STATE.cart = data.items || [];
-        renderCartPreview();
-        updateCartCount();
-    } catch (err) {
-        console.error('Error loading cart:', err);
+async function addToCart(itemId, quantity) {
+    if (!STATE.currentUser) {
+        alert('Please log in first');
+        return;
     }
-}
-
-async function confirmAddToCartFromModal() {
-    const modal = document.getElementById('addToCartModal');
-    const id = modal.dataset.itemId;
-    const qty = parseInt(modal.querySelector('#addQty').value) || 1;
 
     try {
         const res = await fetch(`${API_URL}/cart/${STATE.currentUser.id}/add`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ itemId: id, quantity: qty })
+            body: JSON.stringify({ itemId, quantity })
         });
+
+        if (!res.ok) {
+            throw new Error('Failed to add to cart');
+        }
+
         const data = await res.json();
-        STATE.cart = data.cart.items;
-        modal.classList.add('hidden');
-        alert('Added to cart');
-        renderCartPreview();
-        updateCartCount();
+        
+        // Update local cart state
+        const existing = STATE.cart.find(i => i.itemId === itemId);
+        if (existing) {
+            existing.quantity += quantity;
+        } else {
+            STATE.cart.push({ itemId, quantity });
+        }
+
+        console.log('✅ Added to cart:', itemId, 'qty:', quantity);
+        return true;
     } catch (err) {
+        console.error('Error adding to cart:', err);
         alert('Failed to add to cart');
-        console.error(err);
+        return false;
+    }
+}
+
+async function loadCart() {
+    if (!STATE.currentUser) return;
+
+    try {
+        const res = await fetch(`${API_URL}/cart/${STATE.currentUser.id}`);
+        const data = await res.json();
+        STATE.cart = data.items || [];
+        console.log('✅ Cart loaded:', STATE.cart.length, 'items');
+    } catch (err) {
+        console.error('Error loading cart:', err);
+    }
+}
+
+async function removeFromCart(itemId) {
+    if (!STATE.currentUser) return;
+
+    try {
+        await fetch(`${API_URL}/cart/${STATE.currentUser.id}/remove/${itemId}`, {
+            method: 'DELETE'
+        });
+        STATE.cart = STATE.cart.filter(i => i.itemId !== itemId);
+        console.log('✅ Removed from cart:', itemId);
+    } catch (err) {
+        console.error('Error removing from cart:', err);
     }
 }
 
 async function checkoutCart() {
-    if (STATE.cart.length === 0) return alert('Cart is empty');
+    if (!STATE.currentUser || STATE.cart.length === 0) {
+        alert('Cart is empty');
+        return;
+    }
 
     try {
-        // Update inventory on backend for each cart item
-        for (const c of STATE.cart) {
-            const item = STATE.inventory.find(i => i.id === c.itemId);
-            if (!item || item.stock < c.quantity) {
-                return alert('Insufficient stock for ' + (item ? item.name : 'item'));
-            }
-            const newStock = item.stock - c.quantity;
-            
+        // Update inventory stock for each item
+        for (const cartItem of STATE.cart) {
+            const item = STATE.inventory.find(i => i.id === cartItem.itemId);
+            if (!item) continue;
+
+            const newStock = item.stock - cartItem.quantity;
             await fetch(`${API_URL}/inventory/${item.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ stock: newStock })
             });
-            item.stock = newStock;
         }
 
-        // Clear cart on backend
-        await fetch(`${API_URL}/cart/${STATE.currentUser.id}`, { 
-            method: 'DELETE' 
+        // Clear cart
+        await fetch(`${API_URL}/cart/${STATE.currentUser.id}`, {
+            method: 'DELETE'
         });
-        
-        STATE.cart = [];
-        document.getElementById('cartModal')?.classList.add('hidden');
-        
-        // Reload inventory to reflect new stock
-        await loadInventory();
-        renderProductsGrid();
-        renderCartPreview();
-        updateCartCount();
-        
-        alert('Order placed successfully!');
-    } catch (err) {
-        alert('Checkout failed. Please try again.');
-        console.error(err);
-    }
-}
 
-function updateCartCount() {
-    const countEl = document.getElementById('cartCount');
-    if (countEl) {
-        countEl.textContent = STATE.cart.reduce((s, i) => s + i.quantity, 0);
+        STATE.cart = [];
+        await loadInventory();
+        console.log('✅ Checkout successful');
+        alert('Order placed successfully!');
+        return true;
+    } catch (err) {
+        console.error('Checkout error:', err);
+        alert('Checkout failed');
+        return false;
     }
 }
