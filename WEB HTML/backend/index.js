@@ -9,7 +9,7 @@ const app = express();
 const PORT = process.env.PORT || 3001; // Changed to 3001 to avoid conflict with frontend
 
 // FIXED: Proper MongoDB Atlas URI format
-const MONGO_URI = "mongodb+srv://karldminer_db_user:imdlGN4GUS2lg6A5@cluster0.xntpz0m.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+const MONGO_URI = "mongodb+srv://karldminer_db_user:z3S2MRj9fznl3Mss@cluster0.xntpz0m.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 const DB_NAME = 'InventoryDB';
 
 // --- MIDDLEWARE ---
@@ -188,6 +188,11 @@ app.put('/inventory/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const update = req.body;
+        
+        // Prevent stock from going negative
+        if (update.stock !== undefined && update.stock < 0) {
+            update.stock = 0;
+        }
         
         await db.collection('inventory').updateOne(
             { _id: new ObjectId(id) }, 

@@ -7,6 +7,27 @@ async function addToCart(itemId, quantity) {
         return;
     }
 
+    // Find the item in inventory
+    const item = STATE.inventory.find(i => i.id === itemId);
+    
+    // Check if item exists
+    if (!item) {
+        alert('Item not found');
+        return;
+    }
+
+    // Check if out of stock
+    if (item.stock === 0) {
+        alert('This item is out of stock');
+        return;
+    }
+
+    // Check if enough stock for requested quantity
+    if (item.stock < quantity) {
+        alert('Not enough stock available! Only ' + item.stock + ' left.');
+        return;
+    }
+
     try {
         const res = await fetch(`${API_URL}/cart/${STATE.currentUser.id}/add`, {
             method: 'POST',
@@ -29,6 +50,7 @@ async function addToCart(itemId, quantity) {
         }
 
         console.log('✅ Added to cart:', itemId, 'qty:', quantity);
+        alert('Added to cart successfully!');
         return true;
     } catch (err) {
         console.error('Error adding to cart:', err);
@@ -71,17 +93,31 @@ async function checkoutCart() {
     }
 
     try {
+        // Validate all items have enough stock before checkout
+        for (const cartItem of STATE.cart) {
+            const item = STATE.inventory.find(i => i.id === cartItem.itemId);
+            if (!item) {
+                alert('Item not found: ' + cartItem.itemId);
+                return;
+            }
+            if (item.stock < cartItem.quantity) {
+                alert('Not enough stock for ' + item.name + '. Available: ' + item.stock);
+                return;
+            }
+        }
+
         // Update inventory stock for each item
         for (const cartItem of STATE.cart) {
             const item = STATE.inventory.find(i => i.id === cartItem.itemId);
             if (!item) continue;
 
-            const newStock = item.stock - cartItem.quantity;
+            const newStock = Math.max(0, item.stock - cartItem.quantity);
             await fetch(`${API_URL}/inventory/${item.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ stock: newStock })
             });
+            item.stock = newStock;
         }
 
         // Clear cart
