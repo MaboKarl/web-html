@@ -293,7 +293,7 @@
         <div class="cart-footer">
             <div class="cart-total">
                 <span>Total:</span>
-                <span id="cartTotal">$0.00</span>
+                <span id="cartTotal">₱0.00</span>
             </div>
             <button class="btn-checkout" onclick="checkoutCart()">Proceed to Checkout</button>
         </div>
@@ -347,7 +347,7 @@
                     <p class="product-brand">${item.brand}</p>
                     <p class="product-description">${item.description}</p>
                     <div class="product-footer">
-                        <span class="product-price">$${item.price.toFixed(2)}</span>
+                        <span class="product-price">₱${item.price.toFixed(2)}</span>
                         <button class="btn-add" onclick="addItemToCart('${item.id}')" ${item.stock === 0 ? 'disabled' : ''}>
                             ${item.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
                         </button>
@@ -382,7 +382,7 @@
 
             if (cartItems.length === 0) {
                 document.getElementById('cartItems').innerHTML = '<p style="text-align:center;color:#999;padding:2rem;">Your cart is empty</p>';
-                document.getElementById('cartTotal').textContent = '$0.00';
+                document.getElementById('cartTotal').textContent = '₱0.00';
                 return;
             }
 
@@ -396,10 +396,10 @@
                     <div class="cart-item">
                         <div class="cart-item-info">
                             <h4>${item.name}</h4>
-                            <p>$${item.price.toFixed(2)} × ${cartItem.quantity}</p>
+                            <p>₱${item.price.toFixed(2)} × ${cartItem.quantity}</p>
                         </div>
                         <div class="cart-item-actions">
-                            <div class="cart-item-price">$${subtotal.toFixed(2)}</div>
+                            <div class="cart-item-price">₱${subtotal.toFixed(2)}</div>
                             <button class="remove-btn" onclick="removeFromCart('${item.id}')">Remove</button>
                         </div>
                     </div>
@@ -407,7 +407,7 @@
             }).join('');
 
             document.getElementById('cartItems').innerHTML = html;
-            document.getElementById('cartTotal').textContent = '$' + total.toFixed(2);
+            document.getElementById('cartTotal').textContent = '₱' + total.toFixed(2);
         }
 
         async function removeFromCart(itemId) {

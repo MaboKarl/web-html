@@ -111,6 +111,44 @@ function updateStats(){
     document.getElementById('lowStock').textContent = STATE.inventory.filter(i=>i.stock<10).length;
 }
 
+// Override renderInventoryTable to show PHP currency
+function renderInventoryTable() {
+    const tbody = document.getElementById('inventoryTbody');
+    if (!tbody) return;
+
+    const searchText = (document.getElementById('searchInput')?.value || '').toLowerCase();
+    const category = document.getElementById('categoryFilter')?.value || 'All';
+    
+    const filtered = STATE.inventory.filter(item => {
+        const matchesSearch = item.name.toLowerCase().includes(searchText) || 
+                            item.brand.toLowerCase().includes(searchText);
+        const matchesCategory = category === 'All' || item.category === category;
+        return matchesSearch && matchesCategory;
+    });
+
+    tbody.innerHTML = filtered.map(item => `
+        <tr>
+            <td>${item.name}</td>
+            <td><span class="badge badge-primary">${item.category}</span></td>
+            <td>${item.brand}</td>
+            <td>₱${item.price.toFixed(2)}</td>
+            <td><span class="badge ${item.stock < 10 ? 'badge-danger' : 'badge-success'}">${item.stock}</span></td>
+            <td>
+                <button class="btn-icon" onclick="openEditForm('${item.id}')" title="Edit">
+                    <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                    </svg>
+                </button>
+                <button class="btn-icon" onclick="confirmDelete('${item.id}')" title="Delete">
+                    <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                </button>
+            </td>
+        </tr>
+    `).join('');
+}
+
 document.getElementById('searchInput').addEventListener('input', renderInventoryTable);
 document.getElementById('categoryFilter').addEventListener('change', renderInventoryTable);
 document.getElementById('addForm').addEventListener('submit', function(e){ handleAddSubmit(e); updateStats(); });
