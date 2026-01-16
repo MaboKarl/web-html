@@ -17,6 +17,9 @@
                 <div><h1>Employee Dashboard</h1><p class="subtitle" id="employeeSubtitle">Welcome</p></div>
             </div>
             <div class="header-right">
+                <button class="btn-primary" onclick="goToAnalytics()" style="background:#059669;margin-right:0.5rem;">
+                    📊 Analytics
+                </button>
                 <button class="btn-danger" onclick="handleLogout()">Logout</button>
             </div>
         </div>
@@ -92,6 +95,10 @@
 <script src="../../js/utils.js"></script>
 <script src="../../js/inventory.js"></script>
 <script>
+function goToAnalytics() {
+    window.location.href = '/Frontend/Analytics.html';
+}
+
 async function initialize() {
     await loadCurrentUser();
     if (!STATE.currentUser || STATE.currentUser.role !== 'employee') {

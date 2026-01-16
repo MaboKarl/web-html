@@ -331,15 +331,18 @@ app.post('/checkout/:userId', async (req, res) => {
             );
         }
 
-        // Create order
+        // Create order (store dates as proper Date objects)
+        const now = new Date();
+        const deliveryDate = new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000); // 5 days from now
+        
         const order = {
             userId: userId,
             username: user.username,
             items: orderItems,
             totalAmount: totalAmount,
             status: 'completed',
-            orderDate: new Date(),
-            deliveryDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000) // 5 days from now
+            orderDate: now,
+            deliveryDate: deliveryDate
         };
 
         const result = await db.collection('orders').insertOne(order);
@@ -382,7 +385,7 @@ app.get('/orders/:userId', async (req, res) => {
     }
 });
 
-// Get analytics (admin only)
+// Get analytics (admin only) - FIXED VERSION
 app.get('/analytics', async (req, res) => {
     try {
         // Total revenue
@@ -424,13 +427,18 @@ app.get('/analytics', async (req, res) => {
             { $sort: { revenue: -1 } }
         ]).toArray();
 
-        // Monthly sales
+        // Monthly sales - FIXED: Convert string orderDate to Date first
         const monthlySales = await db.collection('orders').aggregate([
+            {
+                $addFields: {
+                    orderDateConverted: { $toDate: '$orderDate' }
+                }
+            },
             {
                 $group: {
                     _id: {
-                        year: { $year: '$orderDate' },
-                        month: { $month: '$orderDate' }
+                        year: { $year: '$orderDateConverted' },
+                        month: { $month: '$orderDateConverted' }
                     },
                     revenue: { $sum: '$totalAmount' },
                     orders: { $sum: 1 }

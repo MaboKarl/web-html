@@ -187,7 +187,7 @@
                 <h1>Analytics Dashboard</h1>
             </div>
             <div class="header-right">
-                <button class="btn-back" onclick="goBack()">Back</button>
+                <button class="btn-back" onclick="goBack()">← Back</button>
                 <button class="btn-logout" onclick="handleLogout()">Logout</button>
             </div>
         </div>
@@ -237,11 +237,11 @@
         </div>
     </div>
 
+    <script src="../../js/state.js"></script>
     <script>
-        const API_URL = 'http://localhost:3001';
         let bestsellersChart, categoryChart;
 
-        const STATE = {
+        const STATE_ANALYTICS = {
             currentUser: null
         };
 
@@ -249,36 +249,65 @@
             try {
                 const saved = sessionStorage.getItem('currentUser') || localStorage.getItem('currentUser');
                 if (saved) {
-                    STATE.currentUser = JSON.parse(saved);
-                    if (STATE.currentUser.role !== 'employee') {
+                    STATE_ANALYTICS.currentUser = JSON.parse(saved);
+                    console.log('✅ User verified:', STATE_ANALYTICS.currentUser.username);
+                    if (STATE_ANALYTICS.currentUser.role !== 'employee') {
+                        console.warn('Non-employee tried to access analytics');
                         window.location.href = '/Frontend/index.html';
+                        return false;
                     }
+                    return true;
                 } else {
                     window.location.href = '/Frontend/index.html';
+                    return false;
                 }
             } catch (err) {
                 console.error('Error loading user:', err);
                 window.location.href = '/Frontend/index.html';
+                return false;
             }
         }
 
         async function loadAnalytics() {
             try {
-                const res = await fetch(`${API_URL}/analytics`);
+                console.log('🔍 Fetching analytics from:', API_URL + '/analytics');
+                
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+                
+                const res = await fetch(`${API_URL}/analytics`, {
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeoutId);
+                console.log('✅ Response received - Status:', res.status);
                 
                 if (!res.ok) {
-                    throw new Error('Failed to load analytics');
+                    const errorData = await res.text();
+                    console.error('❌ Error response:', errorData);
+                    throw new Error(`HTTP ${res.status}: ${errorData}`);
                 }
 
                 const data = await res.json();
-                displayStats(data.overview);
-                displayBestsellers(data.bestsellers);
-                displayCategories(data.salesByCategory);
-                displayMonthlySales(data.monthlySales);
+                console.log('📊 Analytics data loaded:', data);
+                
+                // Check if data exists
+                if (!data.overview) {
+                    throw new Error('No overview data in response');
+                }
+                
+                displayStats(data.overview || {});
+                displayBestsellers(data.bestsellers || []);
+                displayCategories(data.salesByCategory || []);
+                displayMonthlySales(data.monthlySales || []);
             } catch (err) {
-                console.error('Error loading analytics:', err);
-                document.getElementById('errorDiv').textContent = 'Error loading analytics: ' + err.message;
+                console.error('❌ Error loading analytics:', err);
+                const errorMsg = err.name === 'AbortError' 
+                    ? 'Request timeout - Backend not responding' 
+                    : err.message;
+                document.getElementById('errorDiv').textContent = 'Error: ' + errorMsg + ' | Check console (F12)';
                 document.getElementById('errorDiv').style.display = 'block';
+                document.getElementById('statsContainer').innerHTML = '<div class="loading">Failed to load analytics</div>';
             }
         }
 
@@ -301,14 +330,48 @@
         }
 
         function displayBestsellers(bestsellers) {
-            const labels = bestsellers.map(item => item._id);
-            const data = bestsellers.map(item => item.totalSold);
-            
             const ctx = document.getElementById('bestsellersChart').getContext('2d');
             
             if (bestsellersChart) {
                 bestsellersChart.destroy();
             }
+
+            // Handle empty data
+            if (!bestsellers || bestsellers.length === 0) {
+                console.warn('No bestseller data');
+                
+                bestsellersChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['No Data'],
+                        datasets: [{
+                            label: 'Units Sold',
+                            data: [0],
+                            backgroundColor: '#667eea',
+                            borderColor: '#667eea',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: true
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+                return;
+            }
+
+            const labels = bestsellers.map(item => item._id || 'Unknown');
+            const data = bestsellers.map(item => item.totalSold || 0);
             
             bestsellersChart = new Chart(ctx, {
                 type: 'bar',
@@ -332,11 +395,7 @@
                     },
                     scales: {
                         y: {
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: 'Units Sold'
-                            }
+                            beginAtZero: true
                         }
                     }
                 }
@@ -344,15 +403,44 @@
         }
 
         function displayCategories(categories) {
-            const labels = categories.map(cat => cat._id);
-            const data = categories.map(cat => cat.revenue);
-            const colors = ['#667eea', '#764ba2', '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7', '#dfe6e9'];
-            
             const ctx = document.getElementById('categoryChart').getContext('2d');
             
             if (categoryChart) {
                 categoryChart.destroy();
             }
+
+            // Handle empty data
+            if (!categories || categories.length === 0) {
+                console.warn('No category data');
+                const colors = ['#667eea', '#764ba2', '#ff6b6b', '#4ecdc4'];
+                
+                categoryChart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['No Data'],
+                        datasets: [{
+                            data: [1],
+                            backgroundColor: colors,
+                            borderWidth: 2,
+                            borderColor: '#fff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            }
+                        }
+                    }
+                });
+                return;
+            }
+
+            const labels = categories.map(cat => cat._id || 'Unknown');
+            const data = categories.map(cat => cat.revenue || 0);
+            const colors = ['#667eea', '#764ba2', '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7', '#dfe6e9'];
             
             categoryChart = new Chart(ctx, {
                 type: 'doughnut',
@@ -380,7 +468,7 @@
         function displayMonthlySales(monthlySales) {
             const tbody = document.getElementById('monthlySalesTable');
             
-            if (monthlySales.length === 0) {
+            if (!monthlySales || monthlySales.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">No sales data</td></tr>';
                 return;
             }
@@ -405,8 +493,10 @@
         }
 
         async function init() {
-            await loadCurrentUser();
-            await loadAnalytics();
+            const isAuthed = await loadCurrentUser();
+            if (isAuthed) {
+                await loadAnalytics();
+            }
         }
 
         init();
