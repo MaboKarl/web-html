@@ -410,10 +410,22 @@
             document.getElementById('cartTotal').textContent = '₱' + total.toFixed(2);
         }
 
-        async function removeFromCart(itemId) {
-            STATE.cart = STATE.cart.filter(item => item.itemId !== itemId);
-            updateCart();
-        }
+         async function removeFromCart(itemId) {
+    if (!STATE.currentUser) return;
+
+    STATE.cart = STATE.cart.filter(i => i.itemId !== itemId);
+    updateCart();
+
+    try {
+        await fetch(
+            `${API_URL}/cart/${STATE.currentUser.id}/remove/${itemId}`,
+            { method: 'DELETE' }
+        );
+    } catch (err) {
+        console.error('Backend remove failed:', err);
+    }
+}
+
 
         // Wrap checkout to refresh inventory
         const origCheckout = checkoutCart;

@@ -8,7 +8,7 @@ const bodyParser = require('body-parser');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-const MONGO_URI = "mongodb+srv://karldminer_db_user:z3S2MRj9fznl3Mss@cluster0.xntpz0m.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+const MONGO_URI = "mongodb+srv://liaoadrianmiguel_db_user:adrian123@cluster0.xntpz0m.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 const DB_NAME = 'InventoryDB';
 
 // --- MIDDLEWARE ---
