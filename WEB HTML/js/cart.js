@@ -1,4 +1,4 @@
-// cart.js - Shopping cart functions
+// cart.js - Shopping cart functions with backend checkout
 // API_URL is defined in state.js
 
 async function addToCart(itemId, quantity) {
@@ -76,63 +76,64 @@ async function removeFromCart(itemId) {
     if (!STATE.currentUser) return;
 
     try {
-        await fetch(`${API_URL}/cart/${STATE.currentUser.id}/remove/${itemId}`, {
+        const res = await fetch(`${API_URL}/cart/${STATE.currentUser.id}/remove/${itemId}`, {
             method: 'DELETE'
         });
+
+        if (!res.ok) {
+            throw new Error('Failed to remove from cart');
+        }
+
         STATE.cart = STATE.cart.filter(i => i.itemId !== itemId);
         console.log('✅ Removed from cart:', itemId);
+        return true;
     } catch (err) {
         console.error('Error removing from cart:', err);
+        alert('Failed to remove item');
+        return false;
     }
 }
 
 async function checkoutCart() {
     if (!STATE.currentUser || STATE.cart.length === 0) {
         alert('Cart is empty');
-        return;
+        return false;
     }
 
     try {
-        // Validate all items have enough stock before checkout
-        for (const cartItem of STATE.cart) {
-            const item = STATE.inventory.find(i => i.id === cartItem.itemId);
-            if (!item) {
-                alert('Item not found: ' + cartItem.itemId);
-                return;
-            }
-            if (item.stock < cartItem.quantity) {
-                alert('Not enough stock for ' + item.name + '. Available: ' + item.stock);
-                return;
-            }
-        }
+        // Prepare cart items for checkout
+        const checkoutItems = STATE.cart.map(cartItem => ({
+            itemId: cartItem.itemId,
+            quantity: cartItem.quantity
+        }));
 
-        // Update inventory stock for each item
-        for (const cartItem of STATE.cart) {
-            const item = STATE.inventory.find(i => i.id === cartItem.itemId);
-            if (!item) continue;
-
-            const newStock = Math.max(0, item.stock - cartItem.quantity);
-            await fetch(`${API_URL}/inventory/${item.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ stock: newStock })
-            });
-            item.stock = newStock;
-        }
-
-        // Clear cart
-        await fetch(`${API_URL}/cart/${STATE.currentUser.id}`, {
-            method: 'DELETE'
+        // Call backend checkout endpoint
+        const res = await fetch(`${API_URL}/checkout/${STATE.currentUser.id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items: checkoutItems })
         });
 
+        if (!res.ok) {
+            const error = await res.json();
+            alert('Checkout failed: ' + (error.error || 'Unknown error'));
+            return false;
+        }
+
+        const data = await res.json();
+        
+        // Clear local cart
         STATE.cart = [];
+        
+        // Reload inventory to show updated stock
         await loadInventory();
-        console.log('✅ Checkout successful');
-        alert('Order placed successfully!');
+        
+        console.log('✅ Checkout successful. Order ID:', data.orderId);
+        alert('Order placed successfully!\nOrder ID: ' + data.orderId);
         return true;
     } catch (err) {
         console.error('Checkout error:', err);
-        alert('Checkout failed');
+        alert('Checkout failed: ' + err.message);
         return false;
     }
 }

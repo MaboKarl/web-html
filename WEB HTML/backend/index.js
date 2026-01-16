@@ -1,4 +1,4 @@
-// index.js - Fixed Backend server with proper MongoDB connection
+// index.js - Backend with Orders and Analytics
 const express = require('express');
 const { MongoClient, ObjectId } = require('mongodb');
 const cors = require('cors');
@@ -41,7 +41,7 @@ async function connectDB() {
         console.error('❌ MongoDB connection error:', err.message);
         console.error('\nTroubleshooting steps:');
         console.error('1. Check if your IP address is whitelisted in MongoDB Atlas');
-        console.error('2. Verify your password is correct (no special characters need escaping)');
+        console.error('2. Verify your password is correct');
         console.error('3. Ensure your cluster is running');
         console.error('4. Try updating MongoDB driver: npm install mongodb@latest');
         process.exit(1);
@@ -50,7 +50,6 @@ async function connectDB() {
 
 async function initializeData() {
     try {
-        // Check if users collection has default users
         const usersCount = await db.collection('users').countDocuments();
         if (usersCount === 0) {
             console.log('Initializing default users...');
@@ -61,7 +60,6 @@ async function initializeData() {
             console.log('✅ Default users created');
         }
 
-        // Check if inventory collection has items
         const inventoryCount = await db.collection('inventory').countDocuments();
         if (inventoryCount === 0) {
             console.log('Initializing default inventory with PHP prices...');
@@ -152,7 +150,6 @@ app.post('/auth/login', async (req, res) => {
 app.get('/inventory', async (req, res) => {
     try {
         const items = await db.collection('inventory').find().toArray();
-        // Convert _id to id for frontend compatibility
         const formattedItems = items.map(item => ({
             ...item,
             id: item._id.toString(),
@@ -185,7 +182,6 @@ app.put('/inventory/:id', async (req, res) => {
         const { id } = req.params;
         const update = req.body;
         
-        // Prevent stock from going negative
         if (update.stock !== undefined && update.stock < 0) {
             update.stock = 0;
         }
@@ -283,6 +279,178 @@ app.delete('/cart/:userId', async (req, res) => {
     }
 });
 
+// --- ORDER ROUTES ---
+
+// Checkout - Create order
+app.post('/checkout/:userId', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { items } = req.body;
+
+        if (!items || items.length === 0) {
+            return res.status(400).json({ error: 'Cart is empty' });
+        }
+
+        // Get user info
+        const user = await db.collection('users').findOne({ _id: new ObjectId(userId) });
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        // Build order items with product details
+        let totalAmount = 0;
+        const orderItems = [];
+
+        for (const cartItem of items) {
+            const product = await db.collection('inventory').findOne({ _id: new ObjectId(cartItem.itemId) });
+            if (!product) {
+                return res.status(404).json({ error: 'Product not found: ' + cartItem.itemId });
+            }
+
+            if (product.stock < cartItem.quantity) {
+                return res.status(400).json({ error: 'Insufficient stock for ' + product.name });
+            }
+
+            const subtotal = product.price * cartItem.quantity;
+            totalAmount += subtotal;
+
+            orderItems.push({
+                itemId: cartItem.itemId,
+                name: product.name,
+                category: product.category,
+                price: product.price,
+                quantity: cartItem.quantity,
+                subtotal: subtotal
+            });
+
+            // Update inventory stock
+            const newStock = product.stock - cartItem.quantity;
+            await db.collection('inventory').updateOne(
+                { _id: new ObjectId(cartItem.itemId) },
+                { $set: { stock: newStock } }
+            );
+        }
+
+        // Create order
+        const order = {
+            userId: userId,
+            username: user.username,
+            items: orderItems,
+            totalAmount: totalAmount,
+            status: 'completed',
+            orderDate: new Date(),
+            deliveryDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000) // 5 days from now
+        };
+
+        const result = await db.collection('orders').insertOne(order);
+
+        // Clear user's cart
+        await db.collection('carts').updateOne(
+            { userId },
+            { $set: { items: [] } }
+        );
+
+        res.json({
+            message: 'Order placed successfully',
+            orderId: result.insertedId.toString(),
+            order: order
+        });
+    } catch (err) {
+        console.error('Checkout error:', err);
+        res.status(500).json({ error: 'Server error', details: err.message });
+    }
+});
+
+// Get user's order history
+app.get('/orders/:userId', async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        if (!ObjectId.isValid(userId)) {
+            return res.status(400).json({ error: 'Invalid user ID' });
+        }
+
+        const orders = await db.collection('orders')
+            .find({ userId })
+            .sort({ orderDate: -1 })
+            .toArray();
+
+        res.json(orders);
+    } catch (err) {
+        console.error('Get orders error:', err);
+        res.status(500).json({ error: 'Server error', details: err.message });
+    }
+});
+
+// Get analytics (admin only)
+app.get('/analytics', async (req, res) => {
+    try {
+        // Total revenue
+        const revenueData = await db.collection('orders').aggregate([
+            {
+                $group: {
+                    _id: null,
+                    totalRevenue: { $sum: '$totalAmount' },
+                    totalOrders: { $sum: 1 },
+                    averageOrder: { $avg: '$totalAmount' }
+                }
+            }
+        ]).toArray();
+
+        // Bestsellers
+        const bestsellers = await db.collection('orders').aggregate([
+            { $unwind: '$items' },
+            {
+                $group: {
+                    _id: '$items.name',
+                    totalSold: { $sum: '$items.quantity' },
+                    revenue: { $sum: '$items.subtotal' }
+                }
+            },
+            { $sort: { totalSold: -1 } },
+            { $limit: 10 }
+        ]).toArray();
+
+        // Sales by category
+        const salesByCategory = await db.collection('orders').aggregate([
+            { $unwind: '$items' },
+            {
+                $group: {
+                    _id: '$items.category',
+                    totalSold: { $sum: '$items.quantity' },
+                    revenue: { $sum: '$items.subtotal' }
+                }
+            },
+            { $sort: { revenue: -1 } }
+        ]).toArray();
+
+        // Monthly sales
+        const monthlySales = await db.collection('orders').aggregate([
+            {
+                $group: {
+                    _id: {
+                        year: { $year: '$orderDate' },
+                        month: { $month: '$orderDate' }
+                    },
+                    revenue: { $sum: '$totalAmount' },
+                    orders: { $sum: 1 }
+                }
+            },
+            { $sort: { '_id.year': -1, '_id.month': -1 } }
+        ]).toArray();
+
+        res.json({
+            overview: revenueData[0] || { totalRevenue: 0, totalOrders: 0, averageOrder: 0 },
+            bestsellers,
+            salesByCategory,
+            monthlySales
+        });
+    } catch (err) {
+        console.error('Analytics error:', err);
+        res.status(500).json({ error: 'Server error', details: err.message });
+    }
+});
+
 // --- GRACEFUL SHUTDOWN ---
 process.on('SIGINT', async () => {
     console.log('\nShutting down gracefully...');
@@ -300,10 +468,11 @@ connectDB().then(() => {
         console.log(`📊 Database: ${DB_NAME}`);
         console.log(`💱 Currency: PHP`);
         console.log(`\nAvailable endpoints:`);
+        console.log(`  - POST http://localhost:${PORT}/checkout/:userId`);
+        console.log(`  - GET  http://localhost:${PORT}/orders/:userId`);
+        console.log(`  - GET  http://localhost:${PORT}/analytics`);
         console.log(`  - POST http://localhost:${PORT}/auth/login`);
-        console.log(`  - POST http://localhost:${PORT}/auth/register`);
         console.log(`  - GET  http://localhost:${PORT}/inventory`);
-        console.log(`  - GET  http://localhost:${PORT}/health`);
     });
 }).catch(err => {
     console.error('Failed to start server:', err);

@@ -251,12 +251,13 @@
     <div class="header">
         <div class="header-content">
             <div class="header-left">
-                <h1>🛒 ComputerHub</h1>
+                <h1> ComputerHub</h1>
                 <p id="userGreeting">Welcome</p>
             </div>
             <div class="header-right">
                 <button class="btn-cart" onclick="toggleCart()">Cart (<span id="cartBadge">0</span>)</button>
-                <button class="btn-logout" onclick="handleLogout()">Logout</button>
+                <button class="btn-cart" onclick="window.location.href='/Frontend/OrderHistory.html'">Orders</button>
+                <button class="btn-cart" onclick="handleLogout()">Logout</button>
             </div>
         </div>
     </div>
@@ -410,22 +411,21 @@
             document.getElementById('cartTotal').textContent = '₱' + total.toFixed(2);
         }
 
-         async function removeFromCart(itemId) {
-    if (!STATE.currentUser) return;
+        async function removeFromCart(itemId) {
+            if (!STATE.currentUser) return;
 
-    STATE.cart = STATE.cart.filter(i => i.itemId !== itemId);
-    updateCart();
+            STATE.cart = STATE.cart.filter(i => i.itemId !== itemId);
+            updateCart();
 
-    try {
-        await fetch(
-            `${API_URL}/cart/${STATE.currentUser.id}/remove/${itemId}`,
-            { method: 'DELETE' }
-        );
-    } catch (err) {
-        console.error('Backend remove failed:', err);
-    }
-}
-
+            try {
+                await fetch(
+                    `${API_URL}/cart/${STATE.currentUser.id}/remove/${itemId}`,
+                    { method: 'DELETE' }
+                );
+            } catch (err) {
+                console.error('Backend remove failed:', err);
+            }
+        }
 
         // Wrap checkout to refresh inventory
         const origCheckout = checkoutCart;
