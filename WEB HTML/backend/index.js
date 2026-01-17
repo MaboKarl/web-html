@@ -54,6 +54,9 @@ if (!MONGO_URI) {
 console.log(`📝 Environment: ${NODE_ENV}`);
 
 // --- MIDDLEWARE ---
+const helmet = require('helmet');
+
+app.use(helmet());
 app.use(cors());
 app.use(bodyParser.json());
 
