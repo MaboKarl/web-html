@@ -1,15 +1,57 @@
-// index.js - Backend with Orders and Analytics
+// Step 1: Install dotenv
+// npm install dotenv
+
+// Step 2: Create a .env file in your backend folder with:
+/*
+MONGO_URI=mongodb+srv://liaoadrianmiguel_db_user:adrian123@cluster0.xntpz0m.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
+DB_NAME=InventoryDB
+PORT=3001
+NODE_ENV=development
+BCRYPT_ROUNDS=10
+*/
+
+// Step 3: Create a .env.example file (for sharing without secrets):
+/*
+MONGO_URI=your_mongo_connection_string_here
+DB_NAME=InventoryDB
+PORT=3001
+NODE_ENV=development
+BCRYPT_ROUNDS=10
+*/
+
+// Step 4: Add .env to .gitignore (so secrets aren't committed)
+/*
+.env
+.env.local
+node_modules/
+*/
+
+// ============================================
+// index.js - Updated with Environment Variables
+// ============================================
+
+require('dotenv').config();
 const express = require('express');
 const { MongoClient, ObjectId } = require('mongodb');
 const cors = require('cors');
 const bodyParser = require('body-parser');
+const bcrypt = require('bcrypt');
 
-// --- CONFIG ---
+// --- CONFIG FROM ENVIRONMENT ---
 const app = express();
 const PORT = process.env.PORT || 3001;
+const MONGO_URI = process.env.MONGO_URI;
+const DB_NAME = process.env.DB_NAME || 'InventoryDB';
+const BCRYPT_ROUNDS = parseInt(process.env.BCRYPT_ROUNDS) || 10;
+const NODE_ENV = process.env.NODE_ENV || 'development';
 
-const MONGO_URI = "mongodb+srv://liaoadrianmiguel_db_user:adrian123@cluster0.xntpz0m.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
-const DB_NAME = 'InventoryDB';
+// Validate required environment variables
+if (!MONGO_URI) {
+    console.error('❌ MONGO_URI is not set in .env file');
+    process.exit(1);
+}
+
+console.log(`📝 Environment: ${NODE_ENV}`);
 
 // --- MIDDLEWARE ---
 app.use(cors());
@@ -41,7 +83,7 @@ async function connectDB() {
         console.error('❌ MongoDB connection error:', err.message);
         console.error('\nTroubleshooting steps:');
         console.error('1. Check if your IP address is whitelisted in MongoDB Atlas');
-        console.error('2. Verify your password is correct');
+        console.error('2. Verify your MONGO_URI in .env is correct');
         console.error('3. Ensure your cluster is running');
         console.error('4. Try updating MongoDB driver: npm install mongodb@latest');
         process.exit(1);
@@ -50,14 +92,23 @@ async function connectDB() {
 
 async function initializeData() {
     try {
-        const usersCount = await db.collection('users').countDocuments();
-        if (usersCount === 0) {
-            console.log('Initializing default users...');
+        // Check if admin user exists
+        const adminExists = await db.collection('users').findOne({ username: 'admin' });
+        
+        if (!adminExists) {
+            console.log('Initializing default users with hashed passwords...');
+            
+            // Hash default passwords
+            const adminPasswordHash = await bcrypt.hash('admin123', BCRYPT_ROUNDS);
+            const guestPasswordHash = await bcrypt.hash('guest123', BCRYPT_ROUNDS);
+            
             await db.collection('users').insertMany([
-                { username: 'admin', password: 'admin123', name: 'Admin User', role: 'employee' },
-                { username: 'guest', password: 'guest123', name: 'Guest User', role: 'guest' }
+                { username: 'admin', password: adminPasswordHash, name: 'Admin User', role: 'employee', createdAt: new Date() },
+                { username: 'guest', password: guestPasswordHash, name: 'Guest User', role: 'guest', createdAt: new Date() }
             ]);
-            console.log('✅ Default users created');
+            console.log('✅ Default users created with hashed passwords');
+        } else {
+            console.log('✅ Default users already exist');
         }
 
         const inventoryCount = await db.collection('inventory').countDocuments();
@@ -88,15 +139,25 @@ async function initializeData() {
 
 // Health check
 app.get('/health', (req, res) => {
-    res.json({ status: 'OK', message: 'Server is running' });
+    res.json({ status: 'OK', message: 'Server is running', environment: NODE_ENV });
 });
 
 // Auth routes
 app.post('/auth/register', async (req, res) => {
     try {
         const { username, password, name } = req.body;
+        
+        // Input validation
         if (!username || !password || !name) {
             return res.status(400).json({ error: 'All fields are required' });
+        }
+        
+        if (password.length < 6) {
+            return res.status(400).json({ error: 'Password must be at least 6 characters' });
+        }
+        
+        if (username.length < 3) {
+            return res.status(400).json({ error: 'Username must be at least 3 characters' });
         }
 
         const existing = await db.collection('users').findOne({ username });
@@ -104,7 +165,16 @@ app.post('/auth/register', async (req, res) => {
             return res.status(400).json({ error: 'Username already exists' });
         }
 
-        const newUser = { username, password, name, role: 'buyer' };
+        // Hash password with bcrypt
+        const hashedPassword = await bcrypt.hash(password, BCRYPT_ROUNDS);
+        
+        const newUser = { 
+            username, 
+            password: hashedPassword, 
+            name, 
+            role: 'buyer',
+            createdAt: new Date()
+        };
         const result = await db.collection('users').insertOne(newUser);
         
         res.json({ 
@@ -125,12 +195,20 @@ app.post('/auth/register', async (req, res) => {
 app.post('/auth/login', async (req, res) => {
     try {
         const { username, password } = req.body;
+        
+        // Input validation
         if (!username || !password) {
             return res.status(400).json({ error: 'Missing credentials' });
         }
 
-        const user = await db.collection('users').findOne({ username, password });
+        const user = await db.collection('users').findOne({ username });
         if (!user) {
+            return res.status(401).json({ error: 'Invalid username or password' });
+        }
+
+        // Compare password with hash
+        const passwordMatch = await bcrypt.compare(password, user.password);
+        if (!passwordMatch) {
             return res.status(401).json({ error: 'Invalid username or password' });
         }
 
@@ -165,8 +243,14 @@ app.get('/inventory', async (req, res) => {
 app.post('/inventory/add', async (req, res) => {
     try {
         const item = req.body;
+        
+        // Input validation
         if (!item.name || !item.category || !item.price || item.stock === undefined) {
             return res.status(400).json({ error: 'Missing required fields' });
+        }
+        
+        if (item.price < 0 || item.stock < 0) {
+            return res.status(400).json({ error: 'Price and stock cannot be negative' });
         }
 
         const result = await db.collection('inventory').insertOne(item);
@@ -181,6 +265,11 @@ app.put('/inventory/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const update = req.body;
+        
+        // Input validation
+        if (update.price && update.price < 0) {
+            return res.status(400).json({ error: 'Price cannot be negative' });
+        }
         
         if (update.stock !== undefined && update.stock < 0) {
             update.stock = 0;
@@ -224,6 +313,11 @@ app.post('/cart/:userId/add', async (req, res) => {
     try {
         const { userId } = req.params;
         const { itemId, quantity } = req.body;
+        
+        // Input validation
+        if (!itemId || !quantity || quantity < 1) {
+            return res.status(400).json({ error: 'Invalid item or quantity' });
+        }
         
         let cart = await db.collection('carts').findOne({ userId });
         if (!cart) cart = { userId, items: [] };
@@ -281,7 +375,6 @@ app.delete('/cart/:userId', async (req, res) => {
 
 // --- ORDER ROUTES ---
 
-// Checkout - Create order
 app.post('/checkout/:userId', async (req, res) => {
     try {
         const { userId } = req.params;
@@ -291,13 +384,11 @@ app.post('/checkout/:userId', async (req, res) => {
             return res.status(400).json({ error: 'Cart is empty' });
         }
 
-        // Get user info
         const user = await db.collection('users').findOne({ _id: new ObjectId(userId) });
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }
 
-        // Build order items with product details
         let totalAmount = 0;
         const orderItems = [];
 
@@ -323,18 +414,13 @@ app.post('/checkout/:userId', async (req, res) => {
                 subtotal: subtotal
             });
 
-            // Update inventory stock
-            const newStock = product.stock - cartItem.quantity;
             await db.collection('inventory').updateOne(
                 { _id: new ObjectId(cartItem.itemId) },
-                { $set: { stock: newStock } }
+                { $set: { stock: product.stock - cartItem.quantity } }
             );
         }
 
-        // Create order (store dates as proper Date objects)
         const now = new Date();
-        const deliveryDate = new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000); // 5 days from now
-        
         const order = {
             userId: userId,
             username: user.username,
@@ -342,12 +428,11 @@ app.post('/checkout/:userId', async (req, res) => {
             totalAmount: totalAmount,
             status: 'completed',
             orderDate: now,
-            deliveryDate: deliveryDate
+            deliveryDate: new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000)
         };
 
         const result = await db.collection('orders').insertOne(order);
 
-        // Clear user's cart
         await db.collection('carts').updateOne(
             { userId },
             { $set: { items: [] } }
@@ -364,7 +449,6 @@ app.post('/checkout/:userId', async (req, res) => {
     }
 });
 
-// Get user's order history
 app.get('/orders/:userId', async (req, res) => {
     try {
         const { userId } = req.params;
@@ -385,10 +469,8 @@ app.get('/orders/:userId', async (req, res) => {
     }
 });
 
-// Get analytics (admin only) - FIXED VERSION
 app.get('/analytics', async (req, res) => {
     try {
-        // Total revenue
         const revenueData = await db.collection('orders').aggregate([
             {
                 $group: {
@@ -400,7 +482,6 @@ app.get('/analytics', async (req, res) => {
             }
         ]).toArray();
 
-        // Bestsellers
         const bestsellers = await db.collection('orders').aggregate([
             { $unwind: '$items' },
             {
@@ -414,7 +495,6 @@ app.get('/analytics', async (req, res) => {
             { $limit: 10 }
         ]).toArray();
 
-        // Sales by category
         const salesByCategory = await db.collection('orders').aggregate([
             { $unwind: '$items' },
             {
@@ -427,7 +507,6 @@ app.get('/analytics', async (req, res) => {
             { $sort: { revenue: -1 } }
         ]).toArray();
 
-        // Monthly sales - FIXED: Convert string orderDate to Date first
         const monthlySales = await db.collection('orders').aggregate([
             {
                 $addFields: {
@@ -474,13 +553,9 @@ connectDB().then(() => {
     app.listen(PORT, () => {
         console.log(`\n🚀 Backend API server running on http://localhost:${PORT}`);
         console.log(`📊 Database: ${DB_NAME}`);
-        console.log(`💱 Currency: PHP`);
-        console.log(`\nAvailable endpoints:`);
-        console.log(`  - POST http://localhost:${PORT}/checkout/:userId`);
-        console.log(`  - GET  http://localhost:${PORT}/orders/:userId`);
-        console.log(`  - GET  http://localhost:${PORT}/analytics`);
-        console.log(`  - POST http://localhost:${PORT}/auth/login`);
-        console.log(`  - GET  http://localhost:${PORT}/inventory`);
+        console.log(`🔐 Password Hashing: Enabled (bcrypt, ${BCRYPT_ROUNDS} rounds)`);
+        console.log(`🔑 Secrets: Using .env file`);
+        console.log(`📝 Environment: ${NODE_ENV}`);
     });
 }).catch(err => {
     console.error('Failed to start server:', err);
